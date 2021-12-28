@@ -6,18 +6,41 @@ on:
     types: [ opened, reopened ]
 
 jobs:
-  validate_schema:
+  install_dependencies:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
         with:
           node-version: 14
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |  # in case of a cache miss, the keys below will be used to restore dependencies from previous builds, and the cache will be stored at the end of the job, making up-to-date dependencies available for all jobs of the workflow; see more at https://docs.github.com/en/actions/advanced-guides/caching-dependencies-to-speed-up-workflows#example-using-the-cache-action
+            npm-
+      - run: npm ci
+
+  validate_schema:
+    runs-on: ubuntu-latest
+    needs: [ install_dependencies ]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 14
+      - name: Load dependencies cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('./package-lock.json') }}
       - run: npm ci
       - run: npm run test:schema
 
   validate_modified_declarations:
     runs-on: ubuntu-latest
+    needs: [ install_dependencies ]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -25,5 +48,10 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: 14
+      - name: Load dependencies cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('./package-lock.json') }}
       - run: npm ci
       - run: npm run test:modified
